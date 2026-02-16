@@ -88,9 +88,17 @@ print(big.frames[0])  # multi-line braille output
 
 ### Using in TUI frameworks
 
-`LiveSpinner` is designed for simple CLI scripts. For TUI frameworks that manage the full screen (Textual, Rich, curses), use the raw frame data instead — it's just tuples of strings and an interval, so it plugs into any rendering system:
+`LiveSpinner` is designed for simple CLI scripts. For TUI frameworks that manage the full screen (Textual, Rich, curses), use the raw frame data instead — it's just tuples of strings and an interval, so it plugs into any rendering system.
 
-**Textual:**
+A full Textual gallery demo is included at [`examples/textual_demo.py`](examples/textual_demo.py):
+
+```
+uv run python examples/textual_demo.py
+```
+
+![Textual gallery](examples/textual_gallery.png)
+
+**Minimal Textual example:**
 
 ```python
 from textual.app import App, ComposeResult
