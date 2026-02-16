@@ -1,6 +1,9 @@
 import pytest
 
-from unicode_animations.braille import spinners, grid_to_braille, make_grid, BrailleSpinnerName
+from unicode_animations.braille import (
+    spinners, grid_to_braille, make_grid, braille_to_grid, scale_spinner,
+    BrailleSpinnerName, Spinner,
+)
 
 ALL_NAMES: list[str] = [
     "braille", "braillewave", "dna",
@@ -123,3 +126,117 @@ class TestSpinners:
     def test_consistent_frame_widths(self, name: str):
         widths = [len(list(f)) for f in spinners[name].frames]
         assert len(set(widths)) == 1
+
+
+# ── braille_to_grid ──────────────────────────────────────────────────
+
+
+class TestBrailleToGrid:
+    def test_empty_string(self):
+        assert braille_to_grid("") == []
+
+    def test_blank_char(self):
+        grid = braille_to_grid("\u2800")
+        assert len(grid) == 4
+        assert len(grid[0]) == 2
+        assert all(cell is False for row in grid for cell in row)
+
+    def test_full_char(self):
+        grid = braille_to_grid("\u28FF")
+        assert all(cell is True for row in grid for cell in row)
+
+    def test_roundtrip_single(self):
+        g = make_grid(4, 2)
+        g[0][0] = True
+        g[2][1] = True
+        text = grid_to_braille(g)
+        recovered = braille_to_grid(text)
+        assert recovered == g
+
+    def test_roundtrip_multi_char(self):
+        g = make_grid(4, 8)
+        g[0][0] = True
+        g[1][3] = True
+        g[3][7] = True
+        text = grid_to_braille(g)
+        recovered = braille_to_grid(text)
+        assert recovered == g
+
+    def test_roundtrip_multiline(self):
+        g = make_grid(8, 4)
+        g[0][0] = True
+        g[3][3] = True
+        g[4][1] = True
+        g[7][2] = True
+        text = grid_to_braille(g)
+        assert "\n" in text
+        recovered = braille_to_grid(text)
+        assert recovered == g
+
+    @pytest.mark.parametrize("name", ALL_NAMES)
+    def test_roundtrip_all_spinners(self, name: str):
+        for frame in spinners[name].frames:
+            grid = braille_to_grid(frame)
+            assert grid_to_braille(grid) == frame
+
+
+# ── scale_spinner ────────────────────────────────────────────────────
+
+
+class TestScaleSpinner:
+    def test_scale_1_returns_same(self):
+        sp = spinners["braille"]
+        assert scale_spinner(sp, 1) is sp
+
+    def test_scale_0_returns_same(self):
+        sp = spinners["braille"]
+        assert scale_spinner(sp, 0) is sp
+
+    def test_scale_preserves_frame_count(self):
+        sp = spinners["helix"]
+        scaled = scale_spinner(sp, 2)
+        assert len(scaled.frames) == len(sp.frames)
+
+    def test_scale_preserves_interval(self):
+        sp = spinners["helix"]
+        scaled = scale_spinner(sp, 2)
+        assert scaled.interval == sp.interval
+
+    def test_scale_increases_width(self):
+        sp = spinners["helix"]
+        scaled = scale_spinner(sp, 2)
+        original_grid = braille_to_grid(sp.frames[0])
+        scaled_grid = braille_to_grid(scaled.frames[0])
+        assert len(scaled_grid[0]) > len(original_grid[0])
+
+    def test_scale_2_consistent_frame_widths(self):
+        sp = spinners["helix"]
+        scaled = scale_spinner(sp, 2)
+        widths = [len(braille_to_grid(f)[0]) for f in scaled.frames]
+        assert len(set(widths)) == 1
+
+    def test_custom_spinner_scales(self):
+        g = make_grid(4, 2)
+        g[0][0] = True
+        frame = grid_to_braille(g)
+        sp = Spinner(frames=(frame,), interval=100)
+        scaled = scale_spinner(sp, 2)
+        # Original: 1 char (4×2), scaled: should be wider
+        assert len(scaled.frames[0]) > 1
+
+    def test_scale_2_preserves_bottom_row_dots(self):
+        g = make_grid(4, 2)
+        g[3][0] = True
+        frame = grid_to_braille(g)
+        sp = Spinner(frames=(frame,), interval=100)
+        scaled = scale_spinner(sp, 2)
+        scaled_grid = braille_to_grid(scaled.frames[0])
+        assert len(scaled_grid) == 8
+        assert len(scaled_grid[0]) == 4
+        assert all(scaled_grid[r][c] for r in (6, 7) for c in (0, 1))
+        assert sum(cell for row in scaled_grid for cell in row) == 4
+
+    def test_scale_2_outputs_multiline_frames(self):
+        sp = spinners["helix"]
+        scaled = scale_spinner(sp, 2)
+        assert "\n" in scaled.frames[0]

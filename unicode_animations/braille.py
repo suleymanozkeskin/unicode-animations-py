@@ -45,25 +45,47 @@ BRAILLE_DOT_MAP = [
 ]
 
 
-def grid_to_braille(grid: list[list[bool]]) -> str:
-    """Convert a 2D boolean grid into a braille string.
-
-    grid[row][col] = True means dot is raised.
-    Width must be even (2 dot-columns per braille char).
-    """
-    rows = len(grid)
-    cols = len(grid[0]) if grid else 0
+def _grid_chunk_to_braille(chunk: list[list[bool]], cols: int) -> str:
+    """Encode up to 4 grid rows into one braille text line."""
     char_count = math.ceil(cols / 2)
     result: list[str] = []
     for c in range(char_count):
         code = 0x2800
-        for r in range(min(4, rows)):
+        for r in range(min(4, len(chunk))):
+            row = chunk[r]
             for d in range(2):
                 col = c * 2 + d
-                if col < cols and r < len(grid) and grid[r][col]:
+                if col < len(row) and row[col]:
                     code |= BRAILLE_DOT_MAP[r][d]
         result.append(chr(code))
     return "".join(result)
+
+
+def grid_to_braille(grid: list[list[bool]]) -> str:
+    """Convert a 2D boolean grid into braille text.
+
+    grid[row][col] = True means dot is raised.
+    A single line of braille encodes up to 4 grid rows. Taller grids are
+    encoded as multiple newline-separated braille lines.
+    """
+    if not grid:
+        return ""
+
+    rows = len(grid)
+    cols = max((len(row) for row in grid), default=0)
+    if cols == 0:
+        return ""
+
+    if rows <= 4:
+        return _grid_chunk_to_braille(grid, cols)
+
+    lines: list[str] = []
+    for start in range(0, rows, 4):
+        chunk = list(grid[start:start + 4])
+        if len(chunk) < 4:
+            chunk += [[False] * cols for _ in range(4 - len(chunk))]
+        lines.append(_grid_chunk_to_braille(chunk, cols))
+    return "\n".join(lines)
 
 
 def make_grid(rows: int, cols: int) -> list[list[bool]]:
@@ -71,6 +93,62 @@ def make_grid(rows: int, cols: int) -> list[list[bool]]:
     if rows <= 0 or cols <= 0:
         return []
     return [[False] * cols for _ in range(rows)]
+
+
+def _braille_line_to_grid(line: str) -> list[list[bool]]:
+    cols = len(line) * 2
+    grid = [[False] * cols for _ in range(4)]
+    for i, ch in enumerate(line):
+        code = ord(ch) - 0x2800
+        for r in range(4):
+            for d in range(2):
+                if code & BRAILLE_DOT_MAP[r][d]:
+                    grid[r][i * 2 + d] = True
+    return grid
+
+
+def braille_to_grid(text: str) -> list[list[bool]]:
+    """Decode braille text (single or multiline) into a boolean grid."""
+    if not text:
+        return []
+
+    line_grids = [_braille_line_to_grid(line) for line in text.splitlines()]
+    max_cols = max((len(line_grid[0]) for line_grid in line_grids), default=0)
+    total_rows = 4 * len(line_grids)
+    grid = [[False] * max_cols for _ in range(total_rows)]
+
+    for line_idx, line_grid in enumerate(line_grids):
+        for r in range(4):
+            for c in range(len(line_grid[r])):
+                if line_grid[r][c]:
+                    grid[line_idx * 4 + r][c] = True
+    return grid
+
+
+def scale_spinner(spinner: Spinner, factor: int) -> Spinner:
+    """Return a new Spinner with frames scaled up by *factor*.
+
+    Each braille dot becomes a factor×factor block, producing wider/denser
+    output.  ``factor=1`` returns an identical copy.
+    """
+    if factor <= 1:
+        return spinner
+    scaled_frames: list[str] = []
+    for frame in spinner.frames:
+        grid = braille_to_grid(frame)
+        rows = len(grid)
+        cols = len(grid[0]) if grid else 0
+        new_rows = rows * factor
+        new_cols = cols * factor
+        big = make_grid(new_rows, new_cols)
+        for r in range(rows):
+            for c in range(cols):
+                if grid[r][c]:
+                    for dr in range(factor):
+                        for dc in range(factor):
+                            big[r * factor + dr][c * factor + dc] = True
+        scaled_frames.append(grid_to_braille(big))
+    return Spinner(frames=tuple(scaled_frames), interval=spinner.interval)
 
 
 # ── Frame Generators ──────────────────────────────────────────────────
