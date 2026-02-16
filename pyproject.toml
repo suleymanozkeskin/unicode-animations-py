@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unicode-animations"
+version = "0.1.0"
+description = "Pre-built Unicode braille spinner animations as raw frame data"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["spinner", "braille", "unicode", "animation", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
