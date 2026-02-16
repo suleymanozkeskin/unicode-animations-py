@@ -7,7 +7,7 @@ Python port of [gunnargray-dev/unicode-animations](https://github.com/gunnargray
 ## Install
 
 ```
-pip install unicode-animations
+uv add unicode-animations
 ```
 
 ## Usage
@@ -34,9 +34,9 @@ print(grid_to_braille(grid))  # ⡁
 ### CLI demo
 
 ```
-python -m unicode_animations          # cycle through all spinners
-python -m unicode_animations helix    # preview one
-python -m unicode_animations --list   # list all names
+uv run python -m unicode_animations          # cycle through all spinners
+uv run python -m unicode_animations helix    # preview one
+uv run python -m unicode_animations --list   # list all names
 ```
 
 ## Available spinners
